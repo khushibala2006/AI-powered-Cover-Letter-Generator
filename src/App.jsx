@@ -13,16 +13,21 @@ function App() {
 
   const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
     const handleChange = (e) => {
       setFormData({
         ...formData,
         [e.target.name]: e.target.value,
       });
+      if (error) {
+        setError("");
+      }
     };
 
   const generateLetter = async () => {
   setLoading(true);
+  setError("");
 
   const prompt = `
 Write a professional cover letter using only the information provided below.
@@ -67,11 +72,22 @@ Skills: ${formData.skills}
 
 });
 
-const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({})); // Try to get error details
+        const errorMessage =
+          errorData.error?.message || `API request failed with status ${response.status}`;
+        // Provide a more specific message for 401 errors
+        if (response.status === 401) {
+          throw new Error('Authorization error: Please check your API key.');
+        }
+        throw new Error(errorMessage);
+      }
 
-setCoverLetter(data.choices[0].message.content);
+      const data = await response.json();
+      setCoverLetter(data.choices[0].message.content);
   } catch (error) {
     console.error("Error generating cover letter:", error);
+    setError(error.message);
   } finally {
     setLoading(false);
   }
@@ -112,15 +128,18 @@ setCoverLetter(data.choices[0].message.content);
           <button type="button" onClick={generateLetter} className="btn btn-primary" disabled={loading}>
             {loading ? 'Generating...' : 'Generate Cover Letter'}
           </button>
+          {error && <p style={{ color: 'red', marginTop: '1rem' }}>Error: {error}</p>}
         </div>
 
         <div className="output-section">
           <h2>Your Cover Letter</h2>
-          {loading ? (
-            <p>Generating, please wait...</p>
-          ) : (
-            <pre>{coverLetter || "Your generated cover letter will appear here."}</pre>
+          {loading && (
+            <div className="loading-overlay">
+              <div className="spinner"></div>
+              <p>Generating, please wait...</p>
+            </div>
           )}
+            <pre>{coverLetter || "Your generated cover letter will appear here."}</pre>
           {coverLetter && (
             <button type="button" onClick={copyToClipboard} className="btn btn-secondary" style={{marginTop: '1rem'}}>
               Copy to Clipboard
